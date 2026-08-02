@@ -36,7 +36,7 @@ Description=Subsystem kiosk app (Bare)
 [Service]
 Type=simple
 WorkingDirectory=/opt/subsystem
-ExecStart=/opt/subsystem/bin/bare /opt/subsystem/node_modules/subsystem/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media
+ExecStart=/opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media
 Restart=always
 RestartSec=1
 

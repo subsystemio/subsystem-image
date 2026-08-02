@@ -16,7 +16,7 @@ resolve_app "${1:-.}"
 
 # Where the runner comes from. A git ref by default; point it at a version or a local path while
 # developing the library itself.
-SUBSYSTEM="${SUBSYSTEM:-github:subsystemio/subsystem-js}"
+SUBSYSTEM="${SUBSYSTEM:-github:subsystemio/runtime}"
 
 # Resolve to a concrete version so the build log records exactly what shipped on this card.
 BARE_VERSION="${BARE_VERSION:-$(npm view bare-runtime version 2>/dev/null)}"
@@ -40,7 +40,7 @@ cat > "$PROP/package.json" <<JSON
 {
   "name": "subsystem-payload",
   "private": true,
-  "dependencies": { "subsystem": "$SUBSYSTEM" }
+  "dependencies": { "@subsystemio/runtime": "$SUBSYSTEM" }
 }
 JSON
 
@@ -87,7 +87,7 @@ node -e "
 "
 
 # The service runs the package's own bin, so make sure it actually arrived.
-[ -f "$PROP/node_modules/subsystem/bin/subsystem.js" ] || { echo "  subsystem package has no runner"; exit 1; }
+[ -f "$PROP/node_modules/@subsystemio/runtime/bin/subsystem.js" ] || { echo "  subsystem package has no runner"; exit 1; }
 
 echo "==> packing"
 tar czf "$OUT" -C "$STAGE" subsystem

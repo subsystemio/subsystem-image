@@ -20,7 +20,16 @@ WIFI_COUNTRY="${WIFI_COUNTRY:-GB}"
 
 VOL="${2:-}"
 if [ -z "$VOL" ]; then
-  VOL="$(dirname "$(ls -1 /Volumes/*/dietpi.txt 2>/dev/null | head -1)")"
+  # Two readers plugged in at once is exactly what you do when flashing a dozen cards. Picking the
+  # first silently writes one device's identity onto the wrong card, discovered only in the venue.
+  CANDIDATES="$(ls -1 /Volumes/*/dietpi.txt 2>/dev/null || true)"
+  COUNT="$(printf '%s' "$CANDIDATES" | grep -c . || true)"
+  if [ "$COUNT" -gt 1 ]; then
+    echo "more than one DietPi card is mounted — name the one you mean:"
+    printf '%s\n' "$CANDIDATES" | while read -r c; do echo "    $(dirname "$c")"; done
+    exit 1
+  fi
+  VOL="$(dirname "$CANDIDATES")"
 fi
 [ -f "$VOL/dietpi.txt" ] || { echo "no dietpi.txt found — pass the boot volume path as the 2nd arg"; exit 1; }
 [ -f "$PAYLOAD" ] || { echo "no payload — run 'npm run image' in $APP_DIR first"; exit 1; }
@@ -70,19 +79,23 @@ if [ -n "$WIFI_SSID" ]; then
   inject 'aWIFI_KEY[0]'  "'$WIFI_KEY'"  "$VOL/dietpi-wifi.txt"
 fi
 
-# Two separate things, doing two separate jobs.
-#   ROOM   — the shared secret. Finds the room and proves membership. Watching needs only this.
-#   ADMINS — PUBLIC keys allowed to COMMAND this subsystem. Public, so the card carries no admin power.
+# The only thing a card needs in order to be managed: which MCP it answers to. It is a PUBLIC key,
+# so the card carries no secret and no authority. ROOM is optional and only hides the fleet.
+KEYS="${SUBSYSTEM_KEYS:-$HOME/Dev/subsystemio/master-control}"
+MCP="${MCP:-}"
+if [ -z "$MCP" ] && [ -f "$KEYS/.mcp-key" ]; then
+  MCP="$(tr -d '[:space:]' < "$KEYS/.mcp-key")"
+fi
 ROOM="${ROOM:-}"
-if [ -z "$ROOM" ] && [ -f "${SUBSYSTEM_KEYS:-.}/.room-key" ]; then
-  ROOM="$(tr -d '[:space:]' < "${SUBSYSTEM_KEYS:-.}/.room-key")"
+if [ -z "$ROOM" ] && [ -f "$KEYS/.room-key" ]; then
+  ROOM="$(tr -d '[:space:]' < "$KEYS/.room-key")"
 fi
-ADMINS="${ADMINS:-}"
-if [ -z "$ADMINS" ] && [ -f "${SUBSYSTEM_KEYS:-.}/.controller-key" ]; then
-  ADMINS="$(tr -d '[:space:]' < "${SUBSYSTEM_KEYS:-.}/.controller-key")"
+if [ -n "$MCP" ]; then
+  echo "==> mcp:  ${MCP:0:16}…"
+else
+  echo "==> mcp:  none — this subsystem will run unwatched"
 fi
-[ -n "$ROOM" ] && echo "==> room:   ${ROOM:0:16}…"
-[ -n "$ADMINS" ] && echo "==> admins: ${ADMINS:0:16}…"
+[ -n "$ROOM" ] && echo "==> room: ${ROOM:0:16}… (private)"
 
 cat > "$VOL/subsystem.conf" <<EOF
 APP=$APP
@@ -105,11 +118,8 @@ if [ -d "$APP_DIR/media" ]; then
 fi
 
 touch "$VOL/subsystem-media/config.txt"
+[ -n "$MCP" ] && inject mcp "$MCP" "$VOL/subsystem-media/config.txt"
 [ -n "$ROOM" ] && inject room "$ROOM" "$VOL/subsystem-media/config.txt"
-[ -n "$ADMINS" ] && inject admins "$ADMINS" "$VOL/subsystem-media/config.txt"
-if [ -z "$ROOM" ]; then
-  echo "    (no room secret — this subsystem will run unwatched)"
-fi
 
 sync
 echo

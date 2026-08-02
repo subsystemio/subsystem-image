@@ -1,10 +1,11 @@
 # subsystem-image
 
-Turn a [subsystem](https://github.com/subsystemio/subsystem-js) into a flashable Raspberry Pi card.
+Turn a [subsystem](https://github.com/subsystemio/runtime) into a flashable Raspberry Pi card.
 Boot it and you get a sealed terminal: your app on screen, no browser chrome, no way out.
 
 ```sh
-./build-payload.sh path/to/my-subsystem     # cross-build an arm64 payload
+npm install -g bare                          # the runtime everything here runs on
+./build-payload.sh path/to/my-subsystem      # cross-build an arm64 payload
 # flash DietPi ARMv8 (64-bit) — https://dietpi.com/#download
 ./prepare-sd.sh path/to/my-subsystem /Volumes/bootfs
 ```
@@ -36,8 +37,8 @@ unpacks to `/opt/subsystem` and runs with nothing else installed.
 The runner comes from the published package, so there is no second dependency list to drift:
 
 ```sh
-SUBSYSTEM=github:subsystemio/subsystem-js   # default
-SUBSYSTEM=../subsystem-js ./build-payload.sh ./my-subsystem   # while developing the library
+SUBSYSTEM=github:subsystemio/runtime   # default
+SUBSYSTEM=../runtime ./build-payload.sh ./my-subsystem   # while developing the runtime
 ```
 
 The build refuses to finish if any `require` in your app fails to resolve in the staged payload.
@@ -52,9 +53,14 @@ boots on the Pi:
 ```
 
 Environment variables override for one run: `PORT`, `RESET_AFTER`, `RES_X`/`RES_Y`, `PASSWORD`,
-`ROOM`, `ADMINS`, `WIFI_SSID`/`WIFI_KEY`/`WIFI_COUNTRY`. `ROOM` and `ADMINS` are read from
-`.room-key` and `.controller-key` if a console has minted them (`SUBSYSTEM_KEYS=path` to point
-elsewhere).
+`MCP`, `ROOM`, `WIFI_SSID`/`WIFI_KEY`/`WIFI_COUNTRY`.
+
+`MCP` is the **public key** of the [master-control](https://github.com/subsystemio/master-control)
+daemon this device answers to — the one thing that makes a card manageable, and the only thing a
+card needs. It is read from your MCP's `.mcp-key` automatically (`SUBSYSTEM_KEYS=path` to point
+elsewhere). `ROOM` is optional and only hides the fleet from someone who has learned that key.
+
+**A card carries no secrets.** Lose one and an attacker has a public key.
 
 ## What "sealed" means
 
@@ -78,7 +84,7 @@ Art and config live on the FAT boot partition, readable from any laptop:
 
 ```
 <boot>/subsystem-media/     your app's assets
-<boot>/subsystem-media/config.txt   room secret, admin keys, app settings
+<boot>/subsystem-media/config.txt   the MCP key, optional room secret, app settings
 <boot>/subsystem.conf       which app, which port
 ```
 
