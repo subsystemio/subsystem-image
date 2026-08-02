@@ -36,7 +36,7 @@ discovered, default.
 Put a venue's settings in <dir>/.env rather than typing them per card. It is read, never executed,
 and must never be committed — it is the one file here that holds real secrets.
 
-  WIFI_SSID=Dunham-Guest
+  WIFI_SSID=Venue-Guest
   WIFI_KEY=…
   PASSWORD=…
 `

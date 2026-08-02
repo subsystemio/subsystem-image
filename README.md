@@ -99,7 +99,7 @@ settings are a different thing: secret, different per install, and never committ
 `.env` next to the app, which is read but never executed:
 
 ```sh
-WIFI_SSID=Dunham-Guest
+WIFI_SSID=Venue-Guest
 WIFI_KEY=…
 PASSWORD=…              # leave it out and you ship DietPi's published default
 ```
