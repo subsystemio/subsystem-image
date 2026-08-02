@@ -15,7 +15,15 @@
 #   }
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# npm installs a bin as a SYMLINK into node_modules/.bin, so BASH_SOURCE points there rather than
+# at the package. Walk the link to find where the scripts actually live.
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  LINK_DIR="$(cd -P "$(dirname "$SELF")" && pwd)"
+  SELF="$(readlink "$SELF")"
+  case "$SELF" in /*) ;; *) SELF="$LINK_DIR/$SELF" ;; esac
+done
+HERE="$(cd -P "$(dirname "$SELF")/.." && pwd)"
 
 usage() {
   sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
