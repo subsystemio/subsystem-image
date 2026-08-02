@@ -10,6 +10,8 @@ BOOT=/boot
 APP=tile-puzzle
 PORT=9080
 RESET_AFTER=0
+KIOSK=1
+SERVICES=
 [ -f "$BOOT/subsystem.conf" ] && . "$BOOT/subsystem.conf"
 
 # Room membership and the admin allowlist live in subsystem-media/config.txt, read at runtime.
@@ -26,28 +28,64 @@ if command -v strip >/dev/null; then
   strip /opt/subsystem/bin/bare || true
 fi
 
-echo "[subsystem] installing service"
-cat > /etc/systemd/system/subsystem.service <<EOF
-[Unit]
-Description=Subsystem kiosk app (Bare)
-# Deliberately no network dependency: the app binds loopback only and must come up
-# even with no Wi-Fi, so a dead venue network can never blank the subsystem.
+# ── supervised services ────────────────────────────────────────────────────
+#
+# A card declares what it wants supervised in services.conf, one per line:
+#
+#   name | Description | ExecStart | After(optional)
+#
+# Everything gets Restart=always, because a prop that dies must come back on its
+# own — nobody is going to ssh into a sealed box mid-game. A subsystem card
+# registers its app; an MCP card registers `mcp serve`; a box that does both
+# registers two. The mechanism does not care which.
+emit_unit() {
+  name="$1"; desc="$2"; exec_start="$3"; after="$4"
+  echo "[subsystem] supervising $name"
+  {
+    echo "[Unit]"
+    echo "Description=$desc"
+    if [ -n "$after" ]; then
+      echo "After=$after"
+      echo "Wants=$after"
+    else
+      # No network dependency by default: a prop binds loopback and must come up
+      # even with no Wi-Fi, so a dead venue network can never blank it.
+      echo "# deliberately no network dependency"
+    fi
+    echo ""
+    echo "[Service]"
+    echo "Type=simple"
+    echo "WorkingDirectory=/opt/subsystem"
+    echo "ExecStart=$exec_start"
+    echo "Restart=always"
+    echo "RestartSec=1"
+    echo ""
+    echo "[Install]"
+    echo "WantedBy=multi-user.target"
+  } > "/etc/systemd/system/$name.service"
+}
 
-[Service]
-Type=simple
-WorkingDirectory=/opt/subsystem
-ExecStart=/opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media
-Restart=always
-RestartSec=1
-
-[Install]
-WantedBy=multi-user.target
-EOF
+if [ -f "$BOOT/services.conf" ]; then
+  while IFS='|' read -r NAME DESC EXECSTART AFTER; do
+    NAME="$(echo "$NAME" | xargs)"
+    case "$NAME" in ''|'#'*) continue ;; esac
+    emit_unit "$NAME" "$(echo "$DESC" | xargs)" "$(echo "$EXECSTART" | sed 's/^ *//;s/ *$//')" "$(echo "$AFTER" | xargs)"
+    SERVICES="$SERVICES $NAME"
+  done < "$BOOT/services.conf"
+else
+  # No registry: assume the single-subsystem card this image was originally for.
+  emit_unit subsystem "Subsystem app (Bare)" \
+    "/opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media" ""
+  SERVICES=" subsystem"
+fi
 
 systemctl daemon-reload
-systemctl enable subsystem.service
-systemctl start subsystem.service
+for svc in $SERVICES; do
+  systemctl enable "$svc.service"
+  systemctl start "$svc.service"
+done
 
+if [ "$KIOSK" = "1" ]; then
 echo "[subsystem] disabling the password manager and autofill"
 # A "Save password?" bubble popping up mid-game would be visible to guests, so this is enforced by
 # managed policy rather than page hints — Chromium ignores autocomplete="off" on password fields.
@@ -127,6 +165,8 @@ Section "ServerFlags"
     Option "OffTime"      "0"
 EndSection
 EOF
+
+fi  # end kiosk-only browser setup
 
 echo "[subsystem] quieting boot"
 for f in "$BOOT/cmdline.txt"; do

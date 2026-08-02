@@ -12,6 +12,34 @@ npm install -g bare                          # the runtime everything here runs 
 
 Eject and boot. First boot installs Chromium, then your app appears and stays there.
 
+## Two kinds of card
+
+A **subsystem card** is a sealed kiosk running one app. An **MCP card** is the headless box that
+watches them all — no Chromium, no display, just the daemon.
+
+```sh
+./mcp-card.sh ../master-control /Volumes/bootfs     # the one box per installation
+```
+
+It carries the MCP's existing `.identity` across, so the fleet keeps its key and every subsystem
+card already in the field keeps working. **That card holds a private key** — treat it like a key to
+the building. Subsystem cards hold nothing worth stealing.
+
+## Registering what gets supervised
+
+A card declares its services in `services.conf`, one per line, and the first-boot script installs a
+systemd unit for each with `Restart=always`:
+
+```
+name | Description | ExecStart | After (optional)
+```
+
+A subsystem card registers its app. An MCP card registers `mcp serve`, with `network-online.target`
+since it is the one box that genuinely needs the network before it is useful — a subsystem
+deliberately does not, so a dead venue Wi-Fi can never blank a prop.
+
+A box that should run both just gets two lines. Nothing in the mechanism cares which is which.
+
 ## Hardware
 
 | Board | Verdict |
