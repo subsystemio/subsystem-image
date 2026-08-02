@@ -56,12 +56,12 @@ A box that should run both just gets two lines. Nothing in the mechanism cares w
 
 ## Hardware
 
-| Board | Verdict |
-|---|---|
-| Pi Zero 2 W (64-bit OS) | Works — the only Zero that does |
-| Pi 3 / 4 / 5 (64-bit OS) | Works comfortably |
-| **Pi Zero / W / WH** | **Impossible** |
-| Any Pi on a 32-bit OS | Won't work |
+| Board                    | Verdict                         |
+| ------------------------ | ------------------------------- |
+| Pi Zero 2 W (64-bit OS)  | Works — the only Zero that does |
+| Pi 3 / 4 / 5 (64-bit OS) | Works comfortably               |
+| **Pi Zero / W / WH**     | **Impossible**                  |
+| Any Pi on a 32-bit OS    | Won't work                      |
 
 Zero 1 is ARMv6, and two things independently rule it out: Bare publishes Linux prebuilds for
 `linux-x64` and `linux-arm64` only — there is no `linux-arm` at all — and Chromium dropped ARMv6.

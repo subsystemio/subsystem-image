@@ -13,7 +13,8 @@
     "Automation_Custom_Script.sh"
   ],
   "scripts": {
-    "lint": "for f in *.sh bin/*.sh; do bash -n \"$f\" || exit 1; done && echo 'all scripts parse'"
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
@@ -26,5 +27,9 @@
     "bare-fs": "^4.7.4",
     "bare-path": "^3.1.1",
     "bare-subprocess": "^6.1.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "prettier-config-holepunch": "^2.0.0"
   }
 }
