@@ -9,7 +9,7 @@
 # Installed as a devDependency, this is what a subsystem's own package.json calls:
 #
 #   "scripts": {
-#     "dev":   "subsystem .",
+#     "dev":   "sub .",
 #     "image": "subsystem-image build .",
 #     "flash": "subsystem-image flash ."
 #   }
