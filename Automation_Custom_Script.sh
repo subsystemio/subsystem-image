@@ -69,7 +69,10 @@ if [ -f "$BOOT/services.conf" ]; then
   while IFS='|' read -r NAME DESC EXECSTART AFTER; do
     NAME="$(echo "$NAME" | xargs)"
     case "$NAME" in ''|'#'*) continue ;; esac
-    emit_unit "$NAME" "$(echo "$DESC" | xargs)" "$(echo "$EXECSTART" | sed 's/^ *//;s/ *$//')" "$(echo "$AFTER" | xargs)"
+    # @BOOT@ is the card's stand-in for the boot mount, which is only known here. systemd does no
+    # shell expansion in ExecStart, so it has to be substituted rather than left as a variable.
+    EXECSTART="$(echo "$EXECSTART" | sed "s|@BOOT@|$BOOT|g; s/^ *//; s/ *$//")"
+    emit_unit "$NAME" "$(echo "$DESC" | xargs)" "$EXECSTART" "$(echo "$AFTER" | xargs)"
     SERVICES="$SERVICES $NAME"
   done < "$BOOT/services.conf"
 else

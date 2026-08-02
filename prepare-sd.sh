@@ -97,8 +97,6 @@ else
 fi
 [ -n "$ROOM" ] && echo "==> room: ${ROOM:0:16}… (private)"
 
-BOOT_MEDIA='$BOOT/subsystem-media'  # expanded on the Pi, where $BOOT is known
-
 cat > "$VOL/subsystem.conf" <<EOF
 APP=$APP
 PORT=$PORT
@@ -109,7 +107,7 @@ EOF
 # What this card wants supervised. One line per service; the first-boot script installs each with
 # Restart=always. A subsystem card supervises its app and nothing else.
 cat > "$VOL/services.conf" <<EOF
-subsystem | Subsystem app ($APP) | /opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT_MEDIA |
+subsystem | Subsystem app ($APP) | /opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=@BOOT@/subsystem-media |
 EOF
 
 echo "==> copying payload and first-boot script"
