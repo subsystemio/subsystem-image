@@ -94,15 +94,45 @@ boots on the Pi:
 "subsystem": { "port": 9080, "resetAfter": 0, "resX": 1280, "resY": 720 }
 ```
 
-Environment variables override for one run: `PORT`, `RESET_AFTER`, `RES_X`/`RES_Y`, `PASSWORD`,
-`MCP`, `ROOM`, `WIFI_SSID`/`WIFI_KEY`/`WIFI_COUNTRY`.
+That file is for **hardware**, and it is committed — the app is 1:1 with a Pi. A **venue's**
+settings are a different thing: secret, different per install, and never committed. Those go in a
+`.env` next to the app, which is read but never executed:
+
+```sh
+WIFI_SSID=Dunham-Guest
+WIFI_KEY=…
+PASSWORD=…              # leave it out and you ship DietPi's published default
+```
+
+Anything can also be a flag or an environment variable. Precedence, highest first:
+
+| Source         | Example                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| flag           | `--wifi=… --password=… --volume=… --mcp=…` (`subsystem-image help`) |
+| environment    | `WIFI_KEY=… npm run flash`, for a one-off                           |
+| `.env`         | the venue's standing settings                                       |
+| `package.json` | `"subsystem"` — hardware only                                       |
+| discovered     | `mcp key`, `mcp room`                                               |
+| default        | `WIFI_COUNTRY=GB`, `PASSWORD=dietpi`                                |
+
+Wi-Fi and the device password are applied on **first boot only**. Get them right before the card is
+powered on; changing them later means `dietpi-config` on the device, or a reflash.
 
 `MCP` is the **public key** of the [master-control](https://github.com/subsystemio/master-control)
 daemon this device answers to — the one thing that makes a card manageable, and the only thing a
-card needs. It is read from your MCP's `.mcp-key` automatically (`SUBSYSTEM_KEYS=path` to point
-elsewhere). `ROOM` is optional and only hides the fleet from someone who has learned that key.
+card needs. It is discovered by running `mcp key`, so master-control has to be on your `PATH`:
 
-**A card carries no secrets.** Lose one and an attacker has a public key.
+```sh
+npm install -g github:subsystemio/master-control
+mcp serve      # once, to mint the fleet's identity — before you flash anything
+```
+
+Flashing a card before its MCP exists breaks nothing, but no console will ever see that device.
+Pass `--mcp=<64-hex>` for an MCP that lives on another machine. `ROOM` is optional and only hides
+the fleet from someone who has learned that key.
+
+**A subsystem card carries nothing that grants authority.** Lose one and an attacker has a public
+key, a room secret that reveals only that devices exist, and the venue's Wi-Fi.
 
 ## What "sealed" means
 
