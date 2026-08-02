@@ -3,11 +3,25 @@
 Turn a [subsystem](https://github.com/subsystemio/runtime) into a flashable Raspberry Pi card.
 Boot it and you get a sealed terminal: your app on screen, no browser chrome, no way out.
 
+Install it beside your subsystem and drive it from that subsystem's own scripts:
+
 ```sh
-npm install -g bare                          # the runtime everything here runs on
-./build-payload.sh path/to/my-subsystem      # cross-build an arm64 payload
+npm install -g bare                                        # the runtime everything runs on
+npm install --save-dev github:subsystemio/subsystem-image
+```
+
+```json
+"scripts": {
+  "dev":   "sub .",
+  "image": "subsystem-image build .",
+  "flash": "subsystem-image flash ."
+}
+```
+
+```sh
+npm run image        # cross-build an arm64 payload
 # flash DietPi ARMv8 (64-bit) — https://dietpi.com/#download
-./prepare-sd.sh path/to/my-subsystem /Volumes/bootfs
+npm run flash        # write it to the mounted card
 ```
 
 Eject and boot. First boot installs Chromium, then your app appears and stays there.
@@ -18,7 +32,7 @@ A **subsystem card** is a sealed kiosk running one app. An **MCP card** is the h
 watches them all — no Chromium, no display, just the daemon.
 
 ```sh
-./mcp-card.sh ../master-control /Volumes/bootfs     # the one box per installation
+subsystem-image mcp ../master-control /Volumes/bootfs   # the one box per installation
 ```
 
 It carries the MCP's existing `.identity` across, so the fleet keeps its key and every subsystem
@@ -66,7 +80,7 @@ The runner comes from the published package, so there is no second dependency li
 
 ```sh
 SUBSYSTEM=github:subsystemio/runtime   # default
-SUBSYSTEM=../runtime ./build-payload.sh ./my-subsystem   # while developing the runtime
+SUBSYSTEM=../runtime subsystem-image build ./my-subsystem   # while developing the runtime
 ```
 
 The build refuses to finish if any `require` in your app fails to resolve in the staged payload.
