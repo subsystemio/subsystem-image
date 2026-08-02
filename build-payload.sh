@@ -32,7 +32,11 @@ echo "==> app=$APP  bare=$BARE_VERSION  subsystem=$SUBSYSTEM"
 mkdir -p "$PROP/apps" "$PROP/bin"
 cp -R "$APP_DIR" "$PROP/apps/$APP"
 # Art ships on the FAT boot partition instead, where a laptop can edit it. One copy, no drift.
-rm -rf "$PROP/apps/$APP/media" "$PROP/apps/$APP/subsystem-payload.tar.gz" "$PROP/apps/$APP/node_modules"
+# .identity MUST NOT ship: every device mints its own on first boot. Baking one in would give every
+# card flashed from this payload the SAME identity — the MCP could not tell them apart, adopting one
+# would adopt all, and a private key would ride on a card advertised as carrying nothing.
+rm -rf "$PROP/apps/$APP/media" "$PROP/apps/$APP/subsystem-payload.tar.gz" \
+  "$PROP/apps/$APP/node_modules" "$PROP/apps/$APP/.identity"
 
 # The runner and its entire dependency tree come from the published package. Nothing is hand-listed
 # here, so there is no second dependency list that can drift out of step with the library.
@@ -88,6 +92,15 @@ node -e "
 
 # The service runs the package's own bin, so make sure it actually arrived.
 [ -f "$PROP/node_modules/@subsystemio/runtime/bin/subsystem.js" ] || { echo "  subsystem package has no runner"; exit 1; }
+
+# Belt and braces: nothing key-shaped may ever reach a subsystem card.
+LEAKED="$(find "$PROP" -path "$PROP/node_modules" -prune -o \
+  \( -name 'seed' -o -name '.room' -o -name '*-key' -o -name '.identity' \) -print 2>/dev/null || true)"
+if [ -n "$LEAKED" ]; then
+  echo "  refusing to pack — key material in the payload:"
+  printf '%s\n' "$LEAKED" | sed "s|$PROP|  /opt/subsystem|"
+  exit 1
+fi
 
 echo "==> packing"
 tar czf "$OUT" -C "$STAGE" subsystem
