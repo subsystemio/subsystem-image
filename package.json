@@ -1,7 +1,7 @@
 {
   "name": "@subsystemio/subsystem-image",
   "version": "0.2.0",
-  "description": "Turn a subsystem into a flashable Raspberry Pi kiosk card \u2014 no Node, npm or network on the device",
+  "description": "Turn a subsystem into a flashable Raspberry Pi kiosk card — no Node, npm or network on the device",
   "bin": {
     "subsystem-image": "bin/subsystem-image.js"
   },
@@ -14,7 +14,8 @@
   ],
   "scripts": {
     "lint": "prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "repository": {
     "type": "git",

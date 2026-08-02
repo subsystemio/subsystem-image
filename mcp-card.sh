@@ -128,8 +128,11 @@ KIOSK=0
 EOF
 
 # What this box supervises. Unlike a subsystem, the MCP wants the network up first.
+#
+# --dir is explicit: a systemd unit has no useful HOME, and this is the one directory whose loss
+# orphans every card in the field.
 cat > "$VOL/services.conf" <<EOF
-mcp | Master Control Program | /opt/subsystem/bin/bare /opt/subsystem/mcp/index.js serve $PRIVATE_ROOM | network-online.target
+mcp | Master Control Program | /opt/subsystem/bin/bare /opt/subsystem/mcp/index.js serve --dir=/opt/subsystem/mcp $PRIVATE_ROOM | network-online.target
 EOF
 
 cp "$STAGE/mcp-payload.tar.gz" "$VOL/subsystem-payload.tar.gz"

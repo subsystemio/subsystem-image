@@ -7,7 +7,7 @@ set -euo pipefail
 BOOT=/boot
 [ -f /boot/firmware/dietpi.txt ] && BOOT=/boot/firmware
 
-APP=tile-puzzle
+APP=
 PORT=9080
 RESET_AFTER=0
 KIOSK=1
@@ -19,6 +19,10 @@ SERVICES=
 URL="http://127.0.0.1:$PORT"
 
 echo "[subsystem] installing payload"
+[ -f "$BOOT/subsystem-payload.tar.gz" ] || {
+  echo "[subsystem] no subsystem-payload.tar.gz on the boot partition — card was not written by subsystem-image" >&2
+  exit 1
+}
 tar xzf "$BOOT/subsystem-payload.tar.gz" -C /opt
 chmod +x /opt/subsystem/bin/bare
 
@@ -75,11 +79,14 @@ if [ -f "$BOOT/services.conf" ]; then
     emit_unit "$NAME" "$(echo "$DESC" | xargs)" "$EXECSTART" "$(echo "$AFTER" | xargs)"
     SERVICES="$SERVICES $NAME"
   done < "$BOOT/services.conf"
-else
-  # No registry: assume the single-subsystem card this image was originally for.
+elif [ -n "$APP" ]; then
+  # No registry, but subsystem.conf named an app: a card written by an older prepare-sd.
   emit_unit subsystem "Subsystem app (Bare)" \
     "/opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media" ""
   SERVICES=" subsystem"
+else
+  echo "[subsystem] no services.conf and no APP in subsystem.conf — nothing to supervise" >&2
+  exit 1
 fi
 
 systemctl daemon-reload
@@ -181,4 +188,4 @@ for f in "$BOOT/config.txt"; do
   grep -q '^disable_splash=1' "$f" || echo 'disable_splash=1' >> "$f"
 done
 
-echo "[subsystem] done — $APP on $URL"
+echo "[subsystem] done —$SERVICES"
