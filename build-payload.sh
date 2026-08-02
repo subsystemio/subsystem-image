@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the SD-card payload for ONE app. Each Pi runs exactly one app, so each app owns its image.
 #
-#   cd apps/tile-puzzle && npm run image
-#   ./image/build-payload.sh apps/tile-puzzle
+# Invoked by `subsystem-image build`, which resolves the configuration and exports it. Do not call
+# this directly — on its own it has no idea what to build.
 #
 # Runs on any machine (macOS included): every bare native module ships prebuilds for all 13
 # platforms inside its npm package, so a node_modules tree installed here works verbatim on
@@ -11,12 +11,10 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$HERE/app-config.sh"
-resolve_app "${1:-.}"
-
-# Where the runner comes from. A git ref by default; point it at a version or a local path while
-# developing the library itself.
-SUBSYSTEM="${SUBSYSTEM:-github:subsystemio/runtime}"
+# Every setting is resolved by bin/subsystem-image.js and handed down. Nothing is defaulted here —
+# two places deciding what a default is, is how a card ends up configured differently to its log.
+need () { for v in "$@"; do [ -n "${!v:-}" ] || { echo "$v not set — run this through \`subsystem-image\`" >&2; exit 1; }; done; }
+need APP_DIR APP SUBSYSTEM
 
 # Resolve to a concrete version so the build log records exactly what shipped on this card.
 BARE_VERSION="${BARE_VERSION:-$(npm view bare-runtime version 2>/dev/null)}"
@@ -36,7 +34,7 @@ cp -R "$APP_DIR" "$PROP/apps/$APP"
 # card flashed from this payload the SAME identity — the MCP could not tell them apart, adopting one
 # would adopt all, and a private key would ride on a card advertised as carrying nothing.
 rm -rf "$PROP/apps/$APP/media" "$PROP/apps/$APP/subsystem-payload.tar.gz" \
-  "$PROP/apps/$APP/node_modules" "$PROP/apps/$APP/.identity"
+  "$PROP/apps/$APP/node_modules" "$PROP/apps/$APP/.identity" "$PROP/apps/$APP/.env"
 
 # The runner and its entire dependency tree come from the published package. Nothing is hand-listed
 # here, so there is no second dependency list that can drift out of step with the library.
@@ -95,7 +93,7 @@ node -e "
 
 # Belt and braces: nothing key-shaped may ever reach a subsystem card.
 LEAKED="$(find "$PROP" -path "$PROP/node_modules" -prune -o \
-  \( -name 'seed' -o -name '.room' -o -name '*-key' -o -name '.identity' \) -print 2>/dev/null || true)"
+  \( -name 'seed' -o -name '.room' -o -name '*-key' -o -name '.identity' -o -name '.env' \) -print 2>/dev/null || true)"
 if [ -n "$LEAKED" ]; then
   echo "  refusing to pack — key material in the payload:"
   printf '%s\n' "$LEAKED" | sed "s|$PROP|  /opt/subsystem|"
@@ -107,4 +105,4 @@ tar czf "$OUT" -C "$STAGE" subsystem
 
 echo
 echo "payload: $OUT ($(du -h "$OUT" | cut -f1))"
-echo "next:    $HERE/prepare-sd.sh $APP_DIR <boot volume>"
+echo "next:    subsystem-image flash $APP_DIR <boot volume>"

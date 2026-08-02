@@ -1,16 +1,15 @@
 {
   "name": "@subsystemio/subsystem-image",
   "version": "0.2.0",
-  "description": "Turn a subsystem into a flashable Raspberry Pi kiosk card — no Node, npm or network on the device",
+  "description": "Turn a subsystem into a flashable Raspberry Pi kiosk card \u2014 no Node, npm or network on the device",
   "bin": {
-    "subsystem-image": "bin/subsystem-image.sh"
+    "subsystem-image": "bin/subsystem-image.js"
   },
   "files": [
     "bin",
     "build-payload.sh",
     "prepare-sd.sh",
     "mcp-card.sh",
-    "app-config.sh",
     "Automation_Custom_Script.sh"
   ],
   "scripts": {
@@ -21,5 +20,11 @@
     "url": "git+https://github.com/subsystemio/subsystem-image.git"
   },
   "author": "subsystem.io",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "bare-env": "^3.0.1",
+    "bare-fs": "^4.7.4",
+    "bare-path": "^3.1.1",
+    "bare-subprocess": "^6.1.0"
+  }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build a card for the MCP box — the one machine per installation that watches the fleet.
 #
-#   ./mcp-card.sh /path/to/master-control /Volumes/bootfs
+#   subsystem-image mcp /path/to/master-control /Volumes/bootfs
 #
 # Headless: no Chromium, no kiosk, no display. It boots, runs `mcp serve` under systemd with
 # Restart=always, and waits for subsystems to find it.
@@ -13,33 +13,27 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Every setting is resolved by bin/subsystem-image.js and handed down. Nothing is defaulted here —
+# two places deciding what a default is, is how a card ends up configured differently to its log.
+need () { for v in "$@"; do [ -n "${!v:-}" ] || { echo "$v not set — run this through \`subsystem-image\`" >&2; exit 1; }; done; }
+need APP_DIR PASSWORD WIFI_COUNTRY
+PRIVATE_ROOM="${PRIVATE_ROOM:-}"; WIFI_SSID="${WIFI_SSID:-}"; WIFI_KEY="${WIFI_KEY:-}"
 
-MC="${1:-}"
-[ -n "$MC" ] && [ -f "$MC/index.js" ] || {
-  echo "usage: ./mcp-card.sh /path/to/master-control [/Volumes/bootfs]"
-  exit 1
-}
-MC="$(cd "$MC" && pwd)"
+MC="$APP_DIR"
 
-PASSWORD="${PASSWORD:-dietpi}"
-PRIVATE_ROOM="${PRIVATE_ROOM:-}"
-WIFI_SSID="${WIFI_SSID:-}"
-WIFI_KEY="${WIFI_KEY:-}"
-WIFI_COUNTRY="${WIFI_COUNTRY:-GB}"
-
-VOL="${2:-}"
+VOL="${VOLUME:-}"
 if [ -z "$VOL" ]; then
   CANDIDATES="$(ls -1 /Volumes/*/dietpi.txt 2>/dev/null || true)"
   COUNT="$(printf '%s' "$CANDIDATES" | grep -c . || true)"
   if [ "$COUNT" -gt 1 ]; then
     echo "more than one DietPi card is mounted — name the one you mean:"
-    printf '%s\n' "$CANDIDATES" | while read -r c; do echo "    $(dirname "$c")"; done
+    printf '%s\n' "$CANDIDATES" | while read -r c; do echo "    --volume=$(dirname "$c")"; done
     exit 1
   fi
   VOL="$(dirname "$CANDIDATES")"
 fi
 [ -f "$VOL/dietpi.txt" ] || {
-  echo "no dietpi.txt found — pass the boot volume path as the 2nd arg"
+  echo "no dietpi.txt found — pass --volume=<boot partition>"
   exit 1
 }
 
@@ -92,7 +86,6 @@ echo "==> packing"
 tar czf "$STAGE/mcp-payload.tar.gz" -C "$STAGE" subsystem
 
 echo "==> writing $VOL"
-source "$HERE/app-config.sh" 2>/dev/null || true
 
 inject() { # key value file
   local k="$1" v="$2" f="$3"

@@ -1,24 +1,23 @@
 #!/usr/bin/env bash
 # Write ONE app onto a freshly-flashed DietPi card, from macOS/Linux.
 #
-#   cd apps/tile-puzzle && npm run flash
-#   ./image/prepare-sd.sh apps/tile-puzzle /Volumes/bootfs
+# Invoked by `subsystem-image flash`, which resolves the configuration and exports it. Do not call
+# this directly — every setting it needs comes from there.
 #
 # Everything lands on the FAT boot partition, the only part of the card writable from a Mac.
 # DietPi picks it up on first boot.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$HERE/app-config.sh"
-resolve_app "${1:-.}"
+# Every setting is resolved by bin/subsystem-image.js and handed down. Nothing is defaulted here —
+# two places deciding what a default is, is how a card ends up configured differently to its log.
+need () { for v in "$@"; do [ -n "${!v:-}" ] || { echo "$v not set — run this through \`subsystem-image\`" >&2; exit 1; }; done; }
+need APP_DIR APP PORT RESET_AFTER RES_X RES_Y PASSWORD WIFI_COUNTRY
+MCP="${MCP:-}"; ROOM="${ROOM:-}"; WIFI_SSID="${WIFI_SSID:-}"; WIFI_KEY="${WIFI_KEY:-}"
 
 PAYLOAD="$APP_DIR/subsystem-payload.tar.gz"
-PASSWORD="${PASSWORD:-dietpi}"
-WIFI_SSID="${WIFI_SSID:-}"
-WIFI_KEY="${WIFI_KEY:-}"
-WIFI_COUNTRY="${WIFI_COUNTRY:-GB}"
 
-VOL="${2:-}"
+VOL="${VOLUME:-}"
 if [ -z "$VOL" ]; then
   # Two readers plugged in at once is exactly what you do when flashing a dozen cards. Picking the
   # first silently writes one device's identity onto the wrong card, discovered only in the venue.
@@ -26,13 +25,13 @@ if [ -z "$VOL" ]; then
   COUNT="$(printf '%s' "$CANDIDATES" | grep -c . || true)"
   if [ "$COUNT" -gt 1 ]; then
     echo "more than one DietPi card is mounted — name the one you mean:"
-    printf '%s\n' "$CANDIDATES" | while read -r c; do echo "    $(dirname "$c")"; done
+    printf '%s\n' "$CANDIDATES" | while read -r c; do echo "    --volume=$(dirname "$c")"; done
     exit 1
   fi
   VOL="$(dirname "$CANDIDATES")"
 fi
-[ -f "$VOL/dietpi.txt" ] || { echo "no dietpi.txt found — pass the boot volume path as the 2nd arg"; exit 1; }
-[ -f "$PAYLOAD" ] || { echo "no payload — run 'npm run image' in $APP_DIR first"; exit 1; }
+[ -f "$VOL/dietpi.txt" ] || { echo "no dietpi.txt found — pass --volume=<boot partition>"; exit 1; }
+[ -f "$PAYLOAD" ] || { echo "no payload — run 'subsystem-image build $APP_DIR' first"; exit 1; }
 
 # Replace KEY=... in place (commented or not), or append it. Matched literally so keys containing
 # regex metacharacters — aWIFI_SSID[0] — behave.
@@ -71,7 +70,7 @@ inject SOFTWARE_CHROMIUM_RES_X           "$RES_X"                 "$VOL/dietpi.t
 inject SOFTWARE_CHROMIUM_RES_Y           "$RES_Y"                 "$VOL/dietpi.txt"
 inject AUTO_SETUP_BOOT_WAIT_FOR_NETWORK  0                        "$VOL/dietpi.txt"
 
-if [ -n "$WIFI_SSID" ]; then
+if [ -n "${WIFI_SSID:-}" ]; then
   echo "==> wifi: $WIFI_SSID"
   inject AUTO_SETUP_NET_WIFI_ENABLED      1               "$VOL/dietpi.txt"
   inject AUTO_SETUP_NET_WIFI_COUNTRY_CODE "$WIFI_COUNTRY" "$VOL/dietpi.txt"
@@ -81,21 +80,13 @@ fi
 
 # The only thing a card needs in order to be managed: which MCP it answers to. It is a PUBLIC key,
 # so the card carries no secret and no authority. ROOM is optional and only hides the fleet.
-KEYS="${SUBSYSTEM_KEYS:-$HOME/Dev/subsystemio/master-control}"
-MCP="${MCP:-}"
-if [ -z "$MCP" ] && [ -f "$KEYS/.mcp-key" ]; then
-  MCP="$(tr -d '[:space:]' < "$KEYS/.mcp-key")"
-fi
-ROOM="${ROOM:-}"
-if [ -z "$ROOM" ] && [ -f "$KEYS/.room-key" ]; then
-  ROOM="$(tr -d '[:space:]' < "$KEYS/.room-key")"
-fi
-if [ -n "$MCP" ]; then
+if [ -n "${MCP:-}" ]; then
   echo "==> mcp:  ${MCP:0:16}…"
 else
-  echo "==> mcp:  none — this subsystem will run unwatched"
+  echo "==> mcp:  none — this subsystem will run, but no console will ever see it"
+  echo "          run \`mcp serve\` once to mint a key, or pass --mcp=<64-hex>"
 fi
-[ -n "$ROOM" ] && echo "==> room: ${ROOM:0:16}… (private)"
+[ -n "${ROOM:-}" ] && echo "==> room: ${ROOM:0:16}… (private)"
 
 cat > "$VOL/subsystem.conf" <<EOF
 APP=$APP
@@ -125,8 +116,8 @@ if [ -d "$APP_DIR/media" ]; then
 fi
 
 touch "$VOL/subsystem-media/config.txt"
-[ -n "$MCP" ] && inject mcp "$MCP" "$VOL/subsystem-media/config.txt"
-[ -n "$ROOM" ] && inject room "$ROOM" "$VOL/subsystem-media/config.txt"
+[ -n "${MCP:-}" ] && inject mcp "$MCP" "$VOL/subsystem-media/config.txt"
+[ -n "${ROOM:-}" ] && inject room "$ROOM" "$VOL/subsystem-media/config.txt"
 
 sync
 echo
