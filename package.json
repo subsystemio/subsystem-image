@@ -27,7 +27,8 @@
     "bare-env": "^3.0.1",
     "bare-fs": "^4.7.4",
     "bare-path": "^3.1.1",
-    "bare-subprocess": "^6.1.0"
+    "bare-subprocess": "^6.1.0",
+    "paparam": "^1.10.2"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

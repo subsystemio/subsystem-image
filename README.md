@@ -124,7 +124,7 @@ card needs. It is discovered by running `mcp key`, so master-control has to be o
 
 ```sh
 npm install -g github:subsystemio/master-control
-mcp serve      # once, to mint the fleet's identity — before you flash anything
+mcp            # once, to mint the fleet's identity — before you flash anything
 ```
 
 Flashing a card before its MCP exists breaks nothing, but no console will ever see that device.
