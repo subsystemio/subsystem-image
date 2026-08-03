@@ -88,10 +88,10 @@ else
 fi
 [ -n "${ROOM:-}" ] && echo "==> room: ${ROOM:0:16}… (private)"
 
+# Only what the first-boot script reads: the URL to point Chromium at, and whether there is a
+# browser at all. Everything else about the app is in services.conf.
 cat > "$VOL/subsystem.conf" <<EOF
-APP=$APP
 PORT=$PORT
-RESET_AFTER=$RESET_AFTER
 KIOSK=1
 EOF
 

@@ -7,9 +7,7 @@ set -euo pipefail
 BOOT=/boot
 [ -f /boot/firmware/dietpi.txt ] && BOOT=/boot/firmware
 
-APP=
 PORT=9080
-RESET_AFTER=0
 KIOSK=1
 SERVICES=
 [ -f "$BOOT/subsystem.conf" ] && . "$BOOT/subsystem.conf"
@@ -79,13 +77,8 @@ if [ -f "$BOOT/services.conf" ]; then
     emit_unit "$NAME" "$(echo "$DESC" | xargs)" "$EXECSTART" "$(echo "$AFTER" | xargs)"
     SERVICES="$SERVICES $NAME"
   done < "$BOOT/services.conf"
-elif [ -n "$APP" ]; then
-  # No registry, but subsystem.conf named an app: a card written by an older prepare-sd.
-  emit_unit subsystem "Subsystem app (Bare)" \
-    "/opt/subsystem/bin/bare /opt/subsystem/node_modules/@subsystemio/runtime/bin/subsystem.js /opt/subsystem/apps/$APP --port=$PORT --reset-after=$RESET_AFTER --assets=$BOOT/subsystem-media" ""
-  SERVICES=" subsystem"
 else
-  echo "[subsystem] no services.conf and no APP in subsystem.conf — nothing to supervise" >&2
+  echo "[subsystem] no services.conf on the boot partition — nothing to supervise" >&2
   exit 1
 fi
 
