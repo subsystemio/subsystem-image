@@ -77,6 +77,14 @@ if [ -d "$MC/.identity" ]; then
   [ -f "$MC/.room-key" ] && cp "$MC/.room-key" "$OPT/mcp/.room-key"
   [ -f "$MC/.mcp-key" ] && cp "$MC/.mcp-key" "$OPT/mcp/.mcp-key"
   [ -f "$MC/roster.txt" ] && cp "$MC/roster.txt" "$OPT/mcp/roster.txt"
+  # Without the attestation the box boots but no prop will accept it. Carrying the device key and
+  # its proof together clones this MCP; the alternative is to let the new box mint its own key and
+  # attest that offline, which keeps one secret in one place.
+  if [ -f "$MC/.proof" ]; then
+    cp "$MC/.proof" "$OPT/mcp/.proof"
+  else
+    echo "    WARNING: no .proof — this box will run but no prop will obey it"
+  fi
 else
   echo "==> no identity yet — this card will mint one on first boot"
   echo "    (read it back with: ssh root@<box> cat /opt/subsystem/mcp/.mcp-key)"
