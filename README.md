@@ -26,6 +26,16 @@ npm run flash        # write it to the mounted card
 
 Eject and boot. First boot installs Chromium, then your app appears and stays there.
 
+## Shipping a new build
+
+Rebuild, flash the same card, and reboot it. The card carries a stamp of the payload it installed,
+so a device that boots holding something else unpacks it before the app starts — otherwise the boot
+partition would carry the new build while `/opt` kept running the old one, and the only symptom
+would be behaviour that quietly fails to change.
+
+Everything else on the card is read live and needs no reinstall at all, so reserve this for an
+actual code change; art and credentials are the next section.
+
 ## Two kinds of card
 
 A **subsystem card** is a sealed kiosk running one app. An **MCP card** is the headless box that

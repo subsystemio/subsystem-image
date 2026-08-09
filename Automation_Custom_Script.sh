@@ -16,12 +16,40 @@ SERVICES=
 
 URL="http://127.0.0.1:$PORT"
 
-echo "[subsystem] installing payload"
 [ -f "$BOOT/subsystem-payload.tar.gz" ] || {
   echo "[subsystem] no subsystem-payload.tar.gz on the boot partition — card was not written by subsystem-image" >&2
   exit 1
 }
-tar xzf "$BOOT/subsystem-payload.tar.gz" -C /opt
+
+# ── payload ────────────────────────────────────────────────────────────────
+#
+# Unpacking the payload is NOT a first-boot job. A card is reflashed to carry a new build, and if
+# only first boot ever installed it, the boot partition would hold the new app while /opt kept
+# running the old one — with no symptom except behaviour that quietly fails to change. So the
+# installer below is written to disk, runs now, and runs again on every boot, reinstalling whenever
+# the card is carrying something other than what is already on disk.
+#
+# It is also where a remote update lands when there is one: write the file, reboot.
+INSTALLER=/opt/subsystem-install.sh
+cat > "$INSTALLER" <<'INSTALL'
+#!/bin/bash
+set -euo pipefail
+
+BOOT=/boot
+[ -f /boot/firmware/dietpi.txt ] && BOOT=/boot/firmware
+PAYLOAD="$BOOT/subsystem-payload.tar.gz"
+STAMP=/opt/.subsystem-payload
+
+# A card with no payload is not this script's problem to report — first boot already refused.
+[ -f "$PAYLOAD" ] || exit 0
+
+# Size and mtime rather than a hash: writing a card always moves both, and hashing 35M on a Zero 2 W
+# spends a second of every boot to learn what stat already knows.
+want="$(stat -c '%s %Y' "$PAYLOAD")"
+[ "$(cat "$STAMP" 2>/dev/null || true)" = "$want" ] && exit 0
+
+echo "[subsystem] installing payload"
+tar xzf "$PAYLOAD" -C /opt
 chmod +x /opt/subsystem/bin/bare
 
 # The published runtime carries debug info: ~93M -> ~23M, which matters on a small card.
@@ -29,6 +57,25 @@ if command -v strip >/dev/null; then
   echo "[subsystem] stripping runtime"
   strip /opt/subsystem/bin/bare || true
 fi
+
+echo "$want" > "$STAMP"
+INSTALL
+chmod +x "$INSTALLER"
+
+cat > /etc/systemd/system/subsystem-install.service <<EOF
+[Unit]
+Description=Install the subsystem payload when the card carries a new one
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=$INSTALLER
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+"$INSTALLER"
 
 # ── supervised services ────────────────────────────────────────────────────
 #
@@ -51,14 +98,15 @@ emit_unit() {
     # message from the console — would take six seconds to die for good, with nobody in the room to
     # notice. Zero disables the limit, so a prop retries forever, which is the whole contract.
     echo "StartLimitIntervalSec=0"
-    if [ -n "$after" ]; then
-      echo "After=$after"
-      echo "Wants=$after"
-    else
-      # No network dependency by default: a prop binds loopback and must come up
-      # even with no Wi-Fi, so a dead venue network can never blank it.
-      echo "# deliberately no network dependency"
-    fi
+    # Ordered after the installer whatever this service is called, so nothing ever starts against a
+    # half-written /opt on the boot where the card brought a new payload.
+    #
+    # No network dependency beyond what the card asked for: a prop binds loopback and must come up
+    # even with no Wi-Fi, so a dead venue network can never blank it.
+    deps="subsystem-install.service"
+    [ -n "$after" ] && deps="$deps $after"
+    echo "After=$deps"
+    echo "Wants=$deps"
     echo ""
     echo "[Service]"
     echo "Type=simple"
@@ -88,6 +136,7 @@ else
 fi
 
 systemctl daemon-reload
+systemctl enable subsystem-install.service
 for svc in $SERVICES; do
   systemctl enable "$svc.service"
   systemctl start "$svc.service"
