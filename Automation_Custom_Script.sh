@@ -46,6 +46,11 @@ emit_unit() {
   {
     echo "[Unit]"
     echo "Description=$desc"
+    # Restart=always alone is a trap: systemd's default rate limit gives up after 5 starts in 10s
+    # and leaves the unit failed, permanently. An app that crashes on startup — bad media, a bad
+    # message from the console — would take six seconds to die for good, with nobody in the room to
+    # notice. Zero disables the limit, so a prop retries forever, which is the whole contract.
+    echo "StartLimitIntervalSec=0"
     if [ -n "$after" ]; then
       echo "After=$after"
       echo "Wants=$after"
