@@ -10,6 +10,7 @@
     "build-payload.sh",
     "prepare-sd.sh",
     "mcp-card.sh",
+    "export-card.sh",
     "Automation_Custom_Script.sh"
   ],
   "scripts": {

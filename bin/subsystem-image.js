@@ -110,6 +110,18 @@ function resolve(cmd, { needsMcp }) {
     }
   }
   if (cfg.WIFI_KEY && !cfg.WIFI_SSID) fail('--wifi-key needs --wifi')
+
+  // DietPi holds five networks and joins whichever is in range. The extras have no flags: a venue
+  // with several is exactly what a standing .env is for.
+  for (let n = 2; n <= 5; n++) {
+    const ssid = 'WIFI_SSID_' + n
+    const key = 'WIFI_KEY_' + n
+    cfg[ssid] = String(env[ssid] ?? dotenv[ssid] ?? '')
+    cfg[key] = String(env[key] ?? dotenv[key] ?? '')
+    if (cfg[ssid] && !cfg.WIFI_SSID) fail(ssid + ' needs WIFI_SSID')
+    if (cfg[key] && !cfg[ssid]) fail(key + ' needs ' + ssid)
+  }
+
   if (!/^\d+$/.test(cfg.PORT)) fail('--port must be a number, got "' + cfg.PORT + '"')
 
   return cfg
@@ -142,6 +154,27 @@ const build = command(
   (cmd) => run('build-payload.sh', resolve(cmd, { needsMcp: false }))
 )
 
+// flash and export write the same card; export just writes it into a zip instead of onto a volume.
+function cardFlags(c) {
+  c.add(
+    flag('--mcp [64-hex]', 'which MCP this card answers to; default `mcp key`'),
+    flag('--room [64-hex]', 'room secret, if the fleet is private; default `mcp room`'),
+    flag('--port [port]', 'override package.json "subsystem"'),
+    flag('--reset-after [s]', 'override package.json "subsystem"'),
+    flag('--res-x [px]', 'override package.json "subsystem"'),
+    flag('--res-y [px]', 'override package.json "subsystem"')
+  )
+  venueFlags(c)
+}
+
+function card(cmd) {
+  const cfg = resolve(cmd, { needsMcp: true })
+  if (cfg.PASSWORD === 'dietpi') {
+    console.error('subsystem-image: warning — shipping the default password "dietpi"')
+  }
+  return cfg
+}
+
 const flash = command(
   'flash',
   summary('write a built payload onto a flashed DietPi card'),
@@ -149,21 +182,29 @@ const flash = command(
   arg('[dir]', 'the subsystem to write; defaults to the current directory'),
   arg('[volume]', 'boot partition; defaults to the one mounted DietPi card'),
   flag('--volume [path]', 'boot partition, if not the one mounted card'),
-  flag('--mcp [64-hex]', 'which MCP this card answers to; default `mcp key`'),
-  flag('--room [64-hex]', 'room secret, if the fleet is private; default `mcp room`'),
-  flag('--port [port]', 'override package.json "subsystem"'),
-  flag('--reset-after [s]', 'override package.json "subsystem"'),
-  flag('--res-x [px]', 'override package.json "subsystem"'),
-  flag('--res-y [px]', 'override package.json "subsystem"'),
+  (cmd) => run('prepare-sd.sh', card(cmd))
+)
+cardFlags(flash)
+
+const exportCard = command(
+  'export',
+  summary('write the card into a zip, for whoever holds the card instead'),
+  description(
+    'For a card you cannot plug in here. Unzipped onto the boot partition of a freshly-flashed\n' +
+      'DietPi card, before it ever boots, it is exactly what `flash` would have written — on any OS,\n' +
+      'with nothing installed.\n\n' +
+      'THE ZIP CARRIES THE VENUE WI-FI AND DEVICE PASSWORD. Send it privately.\n\n' +
+      VENUE
+  ),
+  arg('[dir]', 'the subsystem to export; defaults to the current directory'),
+  flag('--out [file]', 'where to write it; default <dir>/subsystem-card.zip'),
   (cmd) => {
-    const cfg = resolve(cmd, { needsMcp: true })
-    if (cfg.PASSWORD === 'dietpi') {
-      console.error('subsystem-image: warning — shipping the default password "dietpi"')
-    }
-    run('prepare-sd.sh', cfg)
+    const cfg = card(cmd)
+    cfg.OUT = path.resolve(cmd.flags.out || path.join(cfg.APP_DIR, 'subsystem-card.zip'))
+    run('export-card.sh', cfg)
   }
 )
-venueFlags(flash)
+cardFlags(exportCard)
 
 const mcpCard = command(
   'mcp',
@@ -200,6 +241,7 @@ const cli = command(
   footer('a card carries no secret that grants anything — only the MCP card holds a private key'),
   build,
   flash,
+  exportCard,
   mcpCard,
   () => console.log(cli.help())
 )

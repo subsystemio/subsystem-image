@@ -129,6 +129,15 @@ if [ -n "$WIFI_SSID" ]; then
   inject AUTO_SETUP_NET_WIFI_COUNTRY_CODE "$WIFI_COUNTRY" "$VOL/dietpi.txt"
   inject 'aWIFI_SSID[0]' "'$WIFI_SSID'" "$VOL/dietpi-wifi.txt"
   inject 'aWIFI_KEY[0]' "'$WIFI_KEY'" "$VOL/dietpi-wifi.txt"
+  # WIFI_SSID_N fills slot N-1. DietPi has five and joins whichever network is in range.
+  for n in 2 3 4 5; do
+    ssid="WIFI_SSID_$n"
+    key="WIFI_KEY_$n"
+    [ -n "${!ssid:-}" ] || continue
+    echo "==> wifi: ${!ssid}"
+    inject "aWIFI_SSID[$((n - 1))]" "'${!ssid}'" "$VOL/dietpi-wifi.txt"
+    inject "aWIFI_KEY[$((n - 1))]" "'${!key:-}'" "$VOL/dietpi-wifi.txt"
+  done
 fi
 
 cat > "$VOL/subsystem.conf" <<EOF

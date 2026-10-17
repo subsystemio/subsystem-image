@@ -26,6 +26,20 @@ npm run flash        # write it to the mounted card
 
 Eject and boot. First boot installs Chromium, then your app appears and stays there.
 
+## A card you cannot plug in
+
+When the card is with someone else, write it into a zip instead:
+
+```sh
+subsystem-image export .    # -> subsystem-card.zip, or --out=<file>
+```
+
+They flash DietPi, then drag the zip's contents onto the card's boot drive — FAT, so any OS and
+nothing to install — before it ever boots. It is exactly what `flash` writes, except `dietpi.txt`
+starts from DietPi's stock one rather than the card's own.
+
+**The zip carries the venue Wi-Fi and device password.** Send it privately, and keep it out of git.
+
 ## Shipping a new build
 
 Rebuild, flash the same card, and reboot it. The card carries a stamp of the payload it installed,
@@ -112,6 +126,9 @@ settings are a different thing: secret, different per install, and never committ
 WIFI_SSID=Venue-Guest
 WIFI_KEY=…
 PASSWORD=…              # leave it out and you ship DietPi's published default
+
+WIFI_SSID_2=Back-Office # up to _5; the device joins whichever is in range
+WIFI_KEY_2=…
 ```
 
 Anything can also be a flag or an environment variable. Precedence, highest first:

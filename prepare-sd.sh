@@ -76,6 +76,14 @@ if [ -n "${WIFI_SSID:-}" ]; then
   inject AUTO_SETUP_NET_WIFI_COUNTRY_CODE "$WIFI_COUNTRY" "$VOL/dietpi.txt"
   inject 'aWIFI_SSID[0]' "'$WIFI_SSID'" "$VOL/dietpi-wifi.txt"
   inject 'aWIFI_KEY[0]'  "'$WIFI_KEY'"  "$VOL/dietpi-wifi.txt"
+  # WIFI_SSID_N fills slot N-1. DietPi has five and joins whichever network is in range.
+  for n in 2 3 4 5; do
+    ssid="WIFI_SSID_$n"; key="WIFI_KEY_$n"
+    [ -n "${!ssid:-}" ] || continue
+    echo "==> wifi: ${!ssid}"
+    inject "aWIFI_SSID[$((n - 1))]" "'${!ssid}'"    "$VOL/dietpi-wifi.txt"
+    inject "aWIFI_KEY[$((n - 1))]"  "'${!key:-}'"   "$VOL/dietpi-wifi.txt"
+  done
 fi
 
 # The only thing a card needs in order to be managed: which MCP it answers to. It is a PUBLIC key,
@@ -118,6 +126,9 @@ fi
 touch "$VOL/subsystem-media/config.txt"
 [ -n "${MCP:-}" ] && inject mcp "$MCP" "$VOL/subsystem-media/config.txt"
 [ -n "${ROOM:-}" ] && inject room "$ROOM" "$VOL/subsystem-media/config.txt"
+
+# An export wrote into a staging directory, not a card; export-card.sh has the closing word.
+[ -n "${EXPORT:-}" ] && exit 0
 
 sync
 echo
