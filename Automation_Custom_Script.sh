@@ -164,14 +164,29 @@ for svc in $SERVICES; do
 done
 
 if [ "$KIOSK" = "1" ]; then
-echo "[subsystem] disabling the password manager and autofill"
+echo "[subsystem] locking Chromium down by policy"
 # A "Save password?" bubble popping up mid-game would be visible to guests, so this is enforced by
 # managed policy rather than page hints — Chromium ignores autocomplete="off" on password fields.
+#
+# The same policy is the browser's half of the seal. --kiosk hides the chrome but not Chromium's
+# own shortcuts — F1 opened Google's help, on the internet, on the first real card. So nothing but
+# the subsystem may load, whatever opened it: the allowlist has no scheme, so it covers the page's
+# ws:// as well as http://. Devtools, file dialogs (ctrl+O), printing, downloads, incognito and
+# guest windows go too.
 # Debian ships the policy dir under either name depending on the package; write both.
 for d in /etc/chromium/policies/managed /etc/chromium-browser/policies/managed; do
   mkdir -p "$d"
-  cat > "$d/subsystem-kiosk.json" <<'EOF'
+  cat > "$d/subsystem-kiosk.json" <<EOF
 {
+  "URLBlocklist": ["*"],
+  "URLAllowlist": ["127.0.0.1:$PORT"],
+  "DeveloperToolsAvailability": 2,
+  "AllowFileSelectionDialogs": false,
+  "PrintingEnabled": false,
+  "DownloadRestrictions": 3,
+  "IncognitoModeAvailability": 1,
+  "BrowserGuestModeEnabled": false,
+  "BrowserAddPersonEnabled": false,
   "PasswordManagerEnabled": false,
   "PasswordLeakDetectionEnabled": false,
   "AutofillAddressEnabled": false,
@@ -218,6 +233,19 @@ mkdir -p "\$PROFILE"
 xset -dpms
 xset s off
 xset s noblank
+# No function keys at all: Chromium binds F1 help, F5 reload, F11 fullscreen, F12 devtools, and
+# none of them belong to a guest. Policy catches what gets through; this stops it being pressed.
+# Watched, not set once: X reloads the default keymap whenever a keyboard appears — at boot, after
+# the session has started, and whenever a guest plugs one in — which silently undoes xmodmap.
+# Ends with the display: xmodmap fails once X is gone.
+(
+  while map=\$(xmodmap -pke 2>/dev/null); do
+    case "\$map" in *'= F1 '*)
+      for k in 67 68 69 70 71 72 73 74 75 76 95 96; do xmodmap -e "keycode \$k = "; done ;;
+    esac
+    sleep 2
+  done
+) &
 # The cursor is left visible on purpose: these subsystems are mouse-driven. On a pure touchscreen the
 # page hides it via CSS instead, so a hybrid rig still gets a pointer.
 
