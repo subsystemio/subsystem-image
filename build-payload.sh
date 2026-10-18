@@ -102,7 +102,8 @@ if [ -n "$LEAKED" ]; then
 fi
 
 echo "==> packing"
-tar czf "$OUT" -C "$STAGE" subsystem
+# COPYFILE_DISABLE: macOS tar otherwise packs its xattrs, which the Pi prints a warning for, per file.
+COPYFILE_DISABLE=1 tar czf "$OUT" -C "$STAGE" subsystem
 
 echo
 echo "payload: $OUT ($(du -h "$OUT" | cut -f1))"

@@ -63,7 +63,9 @@ inject () { # key value file
 echo "==> $APP -> $VOL  (port=$PORT reset-after=${RESET_AFTER}s ${RES_X}x${RES_Y})"
 inject AUTO_SETUP_AUTOMATED              1                        "$VOL/dietpi.txt"
 inject AUTO_SETUP_GLOBAL_PASSWORD        "$PASSWORD"              "$VOL/dietpi.txt"
-inject AUTO_SETUP_INSTALL_SOFTWARE_ID    "6 113"                  "$VOL/dietpi.txt"
+# 113 Chromium (6 X.Org comes with it), 58 Tailscale — so a card that goes wrong in a venue can be
+# reached and fixed from anywhere, not just by whoever is standing next to it.
+inject AUTO_SETUP_INSTALL_SOFTWARE_ID    "6 113 58"               "$VOL/dietpi.txt"
 inject AUTO_SETUP_AUTOSTART_TARGET_INDEX 11                       "$VOL/dietpi.txt"
 inject SOFTWARE_CHROMIUM_AUTOSTART_URL   "http://127.0.0.1:$PORT" "$VOL/dietpi.txt"
 inject SOFTWARE_CHROMIUM_RES_X           "$RES_X"                 "$VOL/dietpi.txt"
@@ -96,12 +98,20 @@ else
 fi
 [ -n "${ROOM:-}" ] && echo "==> room: ${ROOM:0:16}… (private)"
 
-# Only what the first-boot script reads: the URL to point Chromium at, and whether there is a
-# browser at all. Everything else about the app is in services.conf.
+# Only what the first-boot script reads: the URL to point Chromium at, whether there is a browser
+# at all, and how to join the tailnet. Everything else about the app is in services.conf. The
+# first-boot script deletes the key once it has been used.
 cat > "$VOL/subsystem.conf" <<EOF
 PORT=$PORT
 KIOSK=1
+TS_HOSTNAME=$APP
 EOF
+if [ -n "${TS_AUTHKEY:-}" ]; then
+  echo "TS_AUTHKEY=$TS_AUTHKEY" >> "$VOL/subsystem.conf"
+  echo "==> tailscale: joins as $APP on first boot"
+else
+  echo "==> tailscale: installed, no key — run \`tailscale up\` on the device to join"
+fi
 
 # What this card wants supervised. One line per service; the first-boot script installs each with
 # Restart=always. A subsystem card supervises its app and nothing else.

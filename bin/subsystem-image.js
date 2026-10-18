@@ -89,6 +89,7 @@ function resolve(cmd, { needsMcp }) {
     WIFI_SSID: pick('wifi', 'WIFI_SSID'),
     WIFI_KEY: pick('wifiKey', 'WIFI_KEY'),
     WIFI_COUNTRY: pick('wifiCountry', 'WIFI_COUNTRY', 'GB'),
+    TS_AUTHKEY: pick('tailscaleKey', 'TS_AUTHKEY'),
     SUBSYSTEM: pick('runtime', 'SUBSYSTEM', 'github:subsystemio/runtime'),
     BARE_VERSION: pick('bareVersion', 'BARE_VERSION'),
     // Hardware settings belong in the app's package.json — it is 1:1 with a Pi. Venue settings
@@ -110,6 +111,10 @@ function resolve(cmd, { needsMcp }) {
     }
   }
   if (cfg.WIFI_KEY && !cfg.WIFI_SSID) fail('--wifi-key needs --wifi')
+  // It is written into a sourced file on the card, so it must be a key and nothing else.
+  if (cfg.TS_AUTHKEY && !/^tskey-[A-Za-z0-9-]+$/.test(cfg.TS_AUTHKEY)) {
+    fail('--tailscale-key must look like tskey-…')
+  }
 
   // DietPi holds five networks and joins whichever is in range. The extras have no flags: a venue
   // with several is exactly what a standing .env is for.
@@ -137,7 +142,11 @@ const venueFlags = (c) =>
     flag('--wifi [ssid]', 'venue wifi. Applied on FIRST BOOT ONLY'),
     flag('--wifi-key [psk]', 'wifi password'),
     flag('--wifi-country [cc]', 'wifi regulatory domain (default GB)'),
-    flag('--password [pw]', 'device login; default "dietpi", which you should not ship')
+    flag('--password [pw]', 'device login; default "dietpi", which you should not ship'),
+    flag(
+      '--tailscale-key [key]',
+      'join your tailnet on first boot; without it, `tailscale up` later'
+    )
   )
 
 const build = command(
@@ -193,7 +202,7 @@ const exportCard = command(
     'For a card you cannot plug in here. Unzipped onto the boot partition of a freshly-flashed\n' +
       'DietPi card, before it ever boots, it is exactly what `flash` would have written — on any OS,\n' +
       'with nothing installed.\n\n' +
-      'THE ZIP CARRIES THE VENUE WI-FI AND DEVICE PASSWORD. Send it privately.\n\n' +
+      'THE ZIP CARRIES THE VENUE WI-FI, DEVICE PASSWORD AND ANY TAILSCALE KEY. Send it privately.\n\n' +
       VENUE
   ),
   arg('[dir]', 'the subsystem to export; defaults to the current directory'),

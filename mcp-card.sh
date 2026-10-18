@@ -91,7 +91,7 @@ else
 fi
 
 echo "==> packing"
-tar czf "$STAGE/mcp-payload.tar.gz" -C "$STAGE" subsystem
+COPYFILE_DISABLE=1 tar czf "$STAGE/mcp-payload.tar.gz" -C "$STAGE" subsystem
 
 echo "==> writing $VOL"
 
@@ -119,7 +119,7 @@ inject() { # key value file
 inject AUTO_SETUP_AUTOMATED 1 "$VOL/dietpi.txt"
 inject AUTO_SETUP_GLOBAL_PASSWORD "$PASSWORD" "$VOL/dietpi.txt"
 inject AUTO_SETUP_AUTOSTART_TARGET_INDEX 7 "$VOL/dietpi.txt"
-inject AUTO_SETUP_INSTALL_SOFTWARE_ID "" "$VOL/dietpi.txt"
+inject AUTO_SETUP_INSTALL_SOFTWARE_ID 58 "$VOL/dietpi.txt" # Tailscale, for remote repair
 # The MCP is the one box that genuinely needs the network before it is useful.
 inject AUTO_SETUP_BOOT_WAIT_FOR_NETWORK 1 "$VOL/dietpi.txt"
 
@@ -142,7 +142,9 @@ fi
 
 cat > "$VOL/subsystem.conf" <<EOF
 KIOSK=0
+TS_HOSTNAME=mcp
 EOF
+[ -n "${TS_AUTHKEY:-}" ] && echo "TS_AUTHKEY=$TS_AUTHKEY" >> "$VOL/subsystem.conf"
 
 # What this box supervises. Unlike a subsystem, the MCP wants the network up first.
 #

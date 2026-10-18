@@ -31,7 +31,7 @@ rm -f "$OUT"
 
 echo
 echo "card:  $OUT ($(du -h "$OUT" | cut -f1))"
-echo "       IT CARRIES THE VENUE WI-FI AND DEVICE PASSWORD — send it privately."
+echo "       IT CARRIES THE VENUE WI-FI, DEVICE PASSWORD AND ANY TAILSCALE KEY — send it privately."
 echo
 echo "for whoever holds the card:"
 echo "  1. Flash DietPi ARMv8 (64-bit) to it. Do not boot it."

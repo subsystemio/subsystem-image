@@ -38,7 +38,7 @@ They flash DietPi, then drag the zip's contents onto the card's boot drive — F
 nothing to install — before it ever boots. It is exactly what `flash` writes, except `dietpi.txt`
 starts from DietPi's stock one rather than the card's own.
 
-**The zip carries the venue Wi-Fi and device password.** Send it privately, and keep it out of git.
+**The zip carries the venue Wi-Fi, device password and any Tailscale key.** Send it privately, and keep it out of git.
 
 ## Shipping a new build
 
@@ -129,6 +129,8 @@ PASSWORD=…              # leave it out and you ship DietPi's published default
 
 WIFI_SSID_2=Back-Office # up to _5; the device joins whichever is in range
 WIFI_KEY_2=…
+
+TS_AUTHKEY=tskey-auth-… # optional: join your tailnet on first boot (see Remote access)
 ```
 
 Anything can also be a flag or an environment variable. Precedence, highest first:
@@ -158,8 +160,31 @@ Flashing a card before its MCP exists breaks nothing, but no console will ever s
 Pass `--mcp=<64-hex>` for an MCP that lives on another machine. `ROOM` is optional and only hides
 the fleet from someone who has learned that key.
 
-**A subsystem card carries nothing that grants authority.** Lose one and an attacker has a public
-key, a room secret that reveals only that devices exist, and the venue's Wi-Fi.
+**A subsystem card carries nothing that grants authority** — once it has booted. Lose one and an
+attacker has a public key, a room secret that reveals only that devices exist, and the venue's
+Wi-Fi. Before first boot it may also hold a Tailscale key; see below.
+
+## Remote access
+
+Every card installs [Tailscale](https://tailscale.com), because a card that goes wrong in a venue
+is otherwise only fixable by whoever is standing next to it. Give it a key and it joins your
+tailnet on first boot, named after the app (`mcp` for an MCP card):
+
+```sh
+TS_AUTHKEY=tskey-auth-…   # in .env, or --tailscale-key
+```
+
+Then `ssh root@<app>` from anywhere on the tailnet, with the device password. This happens first,
+before anything else in first-boot setup, so a card that fails later is still reachable. It is
+never fatal: a venue with no internet still gets a working prop.
+
+The key sits on the card's FAT partition until first boot, then the card deletes it — so a card,
+or an exported zip, that has not booted yet **does** carry a key. Make it pre-approved, tagged
+(say `tag:prop`) with an ACL that limits what it reaches, and set to expire. A reusable one serves a
+whole batch of cards.
+
+With no key, Tailscale is installed but logged out. On the device, `tailscale up` prints a link;
+open it while logged into your tailnet and the device joins.
 
 ## What "sealed" means
 

@@ -4,13 +4,34 @@
 # Chromium locked to it with no way out.
 set -euo pipefail
 
+# Find the card's FAT partition by what we put on it, not by dietpi.txt. Newer DietPi images mount
+# the FAT at /boot/firmware and, on first boot, MOVE dietpi.txt and this script into /boot on the
+# rootfs — leaving everything else behind. Keying on dietpi.txt picked /boot, found no payload, and
+# installed nothing.
 BOOT=/boot
-[ -f /boot/firmware/dietpi.txt ] && BOOT=/boot/firmware
+[ -f /boot/firmware/subsystem-payload.tar.gz ] && BOOT=/boot/firmware
 
 PORT=9080
 KIOSK=1
 SERVICES=
+TS_HOSTNAME=subsystem
+TS_AUTHKEY=
 [ -f "$BOOT/subsystem.conf" ] && . "$BOOT/subsystem.conf"
+
+# ── remote access ──────────────────────────────────────────────────────────
+#
+# First, before anything below can fail: a card that breaks in a venue is only fixable if it can be
+# reached. Never fatal — a venue with no internet still gets a working prop. With no key, Tailscale
+# is installed but logged out; `tailscale up` on the device prints a link to join it by hand.
+if [ -n "$TS_AUTHKEY" ] && command -v tailscale >/dev/null; then
+  echo "[subsystem] joining the tailnet as $TS_HOSTNAME"
+  for _ in 1 2 3 4 5 6; do
+    tailscale up --authkey="$TS_AUTHKEY" --hostname="$TS_HOSTNAME" --timeout=30s && break
+    sleep 10
+  done
+  # Used or not, a key does not stay on a FAT partition any laptop can read.
+  sed -i '/^TS_AUTHKEY=/d' "$BOOT/subsystem.conf"
+fi
 
 # Room membership and the admin allowlist live in subsystem-media/config.txt, read at runtime.
 
@@ -36,7 +57,7 @@ cat > "$INSTALLER" <<'INSTALL'
 set -euo pipefail
 
 BOOT=/boot
-[ -f /boot/firmware/dietpi.txt ] && BOOT=/boot/firmware
+[ -f /boot/firmware/subsystem-payload.tar.gz ] && BOOT=/boot/firmware
 PAYLOAD="$BOOT/subsystem-payload.tar.gz"
 STAMP=/opt/.subsystem-payload
 
@@ -166,11 +187,26 @@ EOF
 done
 
 echo "[subsystem] locking Chromium to the subsystem"
+# DietPi's autologin execs the autostart from a bare console — no X server is running yet. Starting
+# one is the autostart's own job, so it only launches X; everything that needs a display lives in
+# the session it hands X. Running xset and Chromium straight from the console finds no display, and
+# the card falls back to a login prompt.
 CHROMIUM_AUTOSTART=/var/lib/dietpi/dietpi-software/installed/chromium-autostart.sh
+CHROMIUM_SESSION=/var/lib/dietpi/dietpi-software/installed/chromium-session.sh
 mkdir -p "$(dirname "$CHROMIUM_AUTOSTART")"
 cat > "$CHROMIUM_AUTOSTART" <<EOF
 #!/bin/dash
-# Replaces DietPi's default Chromium autostart.
+# Replaces DietPi's default Chromium autostart. Root gets xinit; anyone else needs startx so
+# systemd-logind grants them the display.
+STARTX=xinit
+[ "\$USER" = root ] || STARTX=startx
+exec "\$STARTX" $CHROMIUM_SESSION
+EOF
+chmod +x "$CHROMIUM_AUTOSTART"
+
+cat > "$CHROMIUM_SESSION" <<EOF
+#!/bin/dash
+# Runs inside X, started by chromium-autostart.sh.
 CHROMIUM=\$(command -v chromium || command -v chromium-browser)
 
 # Profile lives in tmpfs: a power-cut can never leave a dirty profile behind (no "restore pages?"
@@ -208,7 +244,7 @@ exec "\$CHROMIUM" \\
   --ignore-gpu-blocklist \\
   --enable-gpu-rasterization
 EOF
-chmod +x "$CHROMIUM_AUTOSTART"
+chmod +x "$CHROMIUM_SESSION"
 
 echo "[subsystem] disabling VT switching and screen blanking"
 mkdir -p /etc/X11/xorg.conf.d
