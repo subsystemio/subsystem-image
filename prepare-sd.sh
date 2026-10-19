@@ -72,6 +72,16 @@ inject SOFTWARE_CHROMIUM_RES_X           "$RES_X"                 "$VOL/dietpi.t
 inject SOFTWARE_CHROMIUM_RES_Y           "$RES_Y"                 "$VOL/dietpi.txt"
 inject AUTO_SETUP_BOOT_WAIT_FOR_NETWORK  0                        "$VOL/dietpi.txt"
 
+# With a key on the card, SSH refuses passwords: a venue network is full of strangers, and the
+# device password is set once and rarely changed. The console login at the Pi still takes it.
+if [ -n "${SSH_PUBKEY:-}" ]; then
+  inject AUTO_SETUP_SSH_PUBKEY                "$SSH_PUBKEY" "$VOL/dietpi.txt"
+  inject SOFTWARE_DISABLE_SSH_PASSWORD_LOGINS 1             "$VOL/dietpi.txt"
+  echo "==> ssh:  key only ($(echo "$SSH_PUBKEY" | cut -d' ' -f1,3-)) — passwords refused"
+else
+  echo "==> ssh:  passwords allowed — no key; pass --ssh-key or set SSH_PUBKEY to refuse them"
+fi
+
 if [ -n "${WIFI_SSID:-}" ]; then
   echo "==> wifi: $WIFI_SSID"
   inject AUTO_SETUP_NET_WIFI_ENABLED      1               "$VOL/dietpi.txt"

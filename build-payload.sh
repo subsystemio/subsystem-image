@@ -35,7 +35,7 @@ cp -R "$APP_DIR" "$PROP/apps/$APP"
 # would adopt all, and a private key would ride on a card advertised as carrying nothing.
 rm -rf "$PROP/apps/$APP/media" "$PROP/apps/$APP/subsystem-payload.tar.gz" \
   "$PROP/apps/$APP/node_modules" "$PROP/apps/$APP/.identity" "$PROP/apps/$APP/.env" \
-  "$PROP/apps/$APP/.receipt" "$PROP/apps/$APP/subsystem-card.zip"
+  "$PROP/apps/$APP/.receipt" "$PROP/apps/$APP/subsystem-card.zip" "$PROP/apps/$APP/.store"
 
 # The runner and its entire dependency tree come from the published package. Nothing is hand-listed
 # here, so there is no second dependency list that can drift out of step with the library.
@@ -102,8 +102,9 @@ if [ -n "$LEAKED" ]; then
 fi
 
 echo "==> packing"
-# COPYFILE_DISABLE: macOS tar otherwise packs its xattrs, which the Pi prints a warning for, per file.
-COPYFILE_DISABLE=1 tar czf "$OUT" -C "$STAGE" subsystem
+# macOS tar otherwise packs its xattrs (com.apple.provenance survives COPYFILE_DISABLE alone), and
+# the Pi prints a warning for each one.
+COPYFILE_DISABLE=1 tar --no-xattrs -czf "$OUT" -C "$STAGE" subsystem
 
 echo
 echo "payload: $OUT ($(du -h "$OUT" | cut -f1))"

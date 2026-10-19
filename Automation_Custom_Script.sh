@@ -227,8 +227,6 @@ CHROMIUM=\$(command -v chromium || command -v chromium-browser)
 # Profile lives in tmpfs: a power-cut can never leave a dirty profile behind (no "restore pages?"
 # nag on the next boot), and it keeps the rootfs clean enough to mount read-only.
 PROFILE=/tmp/chromium-subsystem
-rm -rf "\$PROFILE"
-mkdir -p "\$PROFILE"
 
 xset -dpms
 xset s off
@@ -249,10 +247,18 @@ xset s noblank
 # The cursor is left visible on purpose: these subsystems are mouse-driven. On a pure touchscreen the
 # page hides it via CSS instead, so a hybrid rig still gets a pointer.
 
-# Don't paint anything until the subsystem is actually answering, so the screen never shows an error page.
-while ! curl -sf -o /dev/null $URL; do sleep 0.5; done
+# Chromium is restarted, never exec'd. Alt+F4, ctrl+W or ctrl+shift+Q closes it; had it been the
+# session, X would end with it and the screen would fall back to DietPi's root autologin — a root
+# shell on a guest's screen until the autostart came round again. Now X outlives any browser.
+while :; do
+  # A fresh profile each time, so nothing a guest did survives the relaunch.
+  rm -rf "\$PROFILE"
+  mkdir -p "\$PROFILE"
+  # Don't paint anything until the subsystem is actually answering, so the screen never shows an
+  # error page — on boot, and after the app itself restarts.
+  while ! curl -sf -o /dev/null $URL; do sleep 0.5; done
 
-exec "\$CHROMIUM" \\
+  "\$CHROMIUM" \\
   --user-data-dir="\$PROFILE" \\
   --kiosk $URL \\
   --noerrdialogs \\
@@ -271,6 +277,8 @@ exec "\$CHROMIUM" \\
   --use-gl=egl \\
   --ignore-gpu-blocklist \\
   --enable-gpu-rasterization
+  sleep 1
+done
 EOF
 chmod +x "$CHROMIUM_SESSION"
 

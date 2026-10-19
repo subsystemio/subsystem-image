@@ -91,7 +91,7 @@ else
 fi
 
 echo "==> packing"
-COPYFILE_DISABLE=1 tar czf "$STAGE/mcp-payload.tar.gz" -C "$STAGE" subsystem
+COPYFILE_DISABLE=1 tar --no-xattrs -czf "$STAGE/mcp-payload.tar.gz" -C "$STAGE" subsystem
 
 echo "==> writing $VOL"
 
@@ -122,6 +122,15 @@ inject AUTO_SETUP_AUTOSTART_TARGET_INDEX 7 "$VOL/dietpi.txt"
 inject AUTO_SETUP_INSTALL_SOFTWARE_ID 58 "$VOL/dietpi.txt" # Tailscale, for remote repair
 # The MCP is the one box that genuinely needs the network before it is useful.
 inject AUTO_SETUP_BOOT_WAIT_FOR_NETWORK 1 "$VOL/dietpi.txt"
+
+# This box holds the fleet's private key: with a key on the card, SSH refuses passwords outright.
+if [ -n "${SSH_PUBKEY:-}" ]; then
+  inject AUTO_SETUP_SSH_PUBKEY "$SSH_PUBKEY" "$VOL/dietpi.txt"
+  inject SOFTWARE_DISABLE_SSH_PASSWORD_LOGINS 1 "$VOL/dietpi.txt"
+  echo "==> ssh: key only — passwords refused"
+else
+  echo "==> ssh: passwords allowed — no key; pass --ssh-key or set SSH_PUBKEY to refuse them"
+fi
 
 if [ -n "$WIFI_SSID" ]; then
   echo "==> wifi: $WIFI_SSID"

@@ -61,6 +61,16 @@ function askMcp(sub) {
   return hit ? hit[0] : ''
 }
 
+// Whoever cuts the card is whoever will SSH into it, so their own key is the sensible default —
+// and with a key on the card, passwords can be refused.
+function ownSshKey() {
+  for (const name of ['id_ed25519.pub', 'id_ecdsa.pub', 'id_rsa.pub']) {
+    const file = path.join(env.HOME || '', '.ssh', name)
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
+  }
+  return ''
+}
+
 function fail(msg) {
   console.error('subsystem-image: ' + msg)
   Bare.exit(1)
@@ -90,6 +100,7 @@ function resolve(cmd, { needsMcp }) {
     WIFI_KEY: pick('wifiKey', 'WIFI_KEY'),
     WIFI_COUNTRY: pick('wifiCountry', 'WIFI_COUNTRY', 'GB'),
     TS_AUTHKEY: pick('tailscaleKey', 'TS_AUTHKEY'),
+    SSH_PUBKEY: pick('sshKey', 'SSH_PUBKEY') || ownSshKey(),
     SUBSYSTEM: pick('runtime', 'SUBSYSTEM', 'github:subsystemio/runtime'),
     BARE_VERSION: pick('bareVersion', 'BARE_VERSION'),
     // Hardware settings belong in the app's package.json — it is 1:1 with a Pi. Venue settings
@@ -114,6 +125,13 @@ function resolve(cmd, { needsMcp }) {
   // It is written into a sourced file on the card, so it must be a key and nothing else.
   if (cfg.TS_AUTHKEY && !/^tskey-[A-Za-z0-9-]+$/.test(cfg.TS_AUTHKEY)) {
     fail('--tailscale-key must look like tskey-…')
+  }
+  // One line into dietpi.txt: a key, an optional comment, and nothing that could start another.
+  if (
+    cfg.SSH_PUBKEY &&
+    !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp\d+) [A-Za-z0-9+/=]+( [^\n]*)?$/.test(cfg.SSH_PUBKEY)
+  ) {
+    fail('--ssh-key must be one public key line, like ssh-ed25519 AAAA… you@laptop')
   }
 
   // DietPi holds five networks and joins whichever is in range. The extras have no flags: a venue
@@ -146,6 +164,10 @@ const venueFlags = (c) =>
     flag(
       '--tailscale-key [key]',
       'join your tailnet on first boot; without it, `tailscale up` later'
+    ),
+    flag(
+      '--ssh-key [pubkey]',
+      'SSH key-only login (default ~/.ssh/id_ed25519.pub); passwords refused'
     )
   )
 
