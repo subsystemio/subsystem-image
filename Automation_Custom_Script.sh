@@ -258,9 +258,16 @@ while :; do
   # error page — on boot, and after the app itself restarts.
   while ! curl -sf -o /dev/null $URL; do sleep 0.5; done
 
+  # There is no window manager, and --kiosk cannot go fullscreen without one: Chromium opened at
+  # 945x1060 in the corner of a 1920x1080 screen on the first real card. So it is sized to the
+  # screen outright — measured on every launch, so a different monitor is filled too.
+  SIZE=\$(xdpyinfo | awk '/dimensions:/ { sub("x", ",", \$2); print \$2; exit }')
+
   "\$CHROMIUM" \\
   --user-data-dir="\$PROFILE" \\
   --kiosk $URL \\
+  --window-position=0,0 \\
+  --window-size="\${SIZE:-1920,1080}" \\
   --noerrdialogs \\
   --disable-infobars \\
   --disable-session-crashed-bubble \\
